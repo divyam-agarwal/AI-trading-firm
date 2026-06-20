@@ -47,6 +47,6 @@ def build_graph(urls: dict):
     return g.compile()
 
 
-async def run(ticker: str, urls: dict = None) -> State:
+async def run(ticker: str, urls: dict[str, str] | None = None) -> State:
     graph = build_graph(urls or DEFAULT_URLS)
     return await graph.ainvoke({"ticker": ticker})

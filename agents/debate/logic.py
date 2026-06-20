@@ -1,3 +1,5 @@
+import re
+
 from common.llm import MODEL_DEBATE, complete
 
 _DISCLAIMER = "\n\n---\nThis is a technical demo of agent coordination. Not financial advice."
@@ -10,6 +12,12 @@ _SYSTEM = (
 
 
 def parse_recommendation(memo: str) -> str:
+    # Primary: anchor on RECOMMENDATION: lines; last match wins so corrections override.
+    matches = re.findall(r"RECOMMENDATION:\s*(BUY|HOLD|SELL)", memo, re.IGNORECASE)
+    if matches:
+        return matches[-1].upper()
+
+    # Fallback: whole-memo substring scan for bare label words.
     upper = memo.upper()
     for label in ("BUY", "SELL", "HOLD"):
         if label in upper:

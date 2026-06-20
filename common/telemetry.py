@@ -1,8 +1,8 @@
 """OpenTelemetry + Langfuse setup. No-op when env vars are unset."""
 import os
 
-from opentelemetry import context as otel_context
 from opentelemetry import trace
+from opentelemetry.context import Context
 from opentelemetry.propagate import extract as _otel_extract
 from opentelemetry.propagate import inject as _otel_inject
 from opentelemetry.sdk.resources import Resource
@@ -25,7 +25,7 @@ def setup(service_name: str) -> None:
     _CONFIGURED = True
 
 
-def tracer(name: str):
+def tracer(name: str) -> trace.Tracer:
     return trace.get_tracer(name)
 
 
@@ -34,5 +34,5 @@ def inject(carrier: dict) -> dict:
     return carrier
 
 
-def extract(carrier: dict):
+def extract(carrier: dict) -> Context:
     return _otel_extract(carrier)

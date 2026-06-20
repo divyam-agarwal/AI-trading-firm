@@ -54,8 +54,9 @@ async def call_agent(base_url: str, text: str) -> str:
         # Resolve the agent card from the well-known /.well-known/agent.json endpoint
         card = await A2ACardResolver(http, base_url=base_url).get_agent_card()
 
-        # ClientConfig(streaming=False) matches the verified spike usage
-        client = ClientFactory(ClientConfig(streaming=False)).create(card)
+        # ClientConfig(streaming=False, httpx_client=http) passes our 60s-timeout client
+        # into the SDK's send path (httpx_client is a known ClientConfig field).
+        client = ClientFactory(ClientConfig(streaming=False, httpx_client=http)).create(card)
 
         # Build the outgoing message
         msg = new_text_message(text, role=Role.ROLE_USER)
