@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-19
 **Status:** Approved (design) — pending spec review before implementation
-**Author:** Divyam (with Claude)
+**Author:** Divyam
 
 ## 1. Purpose & Goals
 
