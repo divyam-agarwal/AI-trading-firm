@@ -28,3 +28,13 @@ Python · A2A · LangGraph · Claude (Anthropic SDK) · OpenTelemetry · Langfus
 ## Python version
 
 Targets Python 3.12+. Venv built with Python 3.13.7 (`/usr/local/bin/python3.13`); python3.12 is not present on this machine.
+
+## Run (Phase 1)
+
+```bash
+pip install -e ".[dev]"
+export ANTHROPIC_API_KEY=sk-ant-...
+./scripts/run_all.sh AAPL
+```
+
+Optional observability: set `OTEL_EXPORTER_OTLP_ENDPOINT` and `LANGFUSE_*` to send traces to a collector / Langfuse.
