@@ -18,6 +18,7 @@ The domain is a **financial analysis crew** inspired by [TauricResearch/TradingA
 - Agents run as independent processes communicating over **A2A** (JSON-RPC/HTTP), discovered via **Agent Cards**.
 - The orchestration flow is **predefined and visualizable** (a LangGraph `StateGraph`).
 - **Proof of interop:** one Python agent can be replaced by a **Java/Spring Boot** agent at the same A2A contract, with **zero changes** to the orchestrator.
+- **End-to-end observability:** a single distributed trace spans the orchestrator and every agent (including the Java one), with LLM token/cost/prompt detail visible in Langfuse.
 
 ### Non-goals (YAGNI)
 - Real trading, brokerage integration, or real money. This is a coordination demo, **not financial advice**.
@@ -119,6 +120,9 @@ class State(TypedDict):
 | HTTP client | `httpx` (async) | Used by a2a-sdk |
 | Data (Fundamentals) | Mock JSON v1; swappable for a free API (e.g. yfinance) | Deterministic demo; real API optional |
 | Java agent (Phase 2) | Spring Boot + small A2A controller | Plays to Java/Spring background |
+| Distributed tracing | OpenTelemetry (W3C trace context propagated over A2A) | Language-agnostic; one trace spans Python + Java agents |
+| LLM/agent observability | Langfuse (open-source, self-hostable, OTel-native, Java SDK) | Token/cost/prompt views + debate turns; covers the Java agent too |
+| Logging | structlog (JSON) | Structured logs carrying `trace_id` |
 
 ## 8. Project Layout
 
@@ -133,6 +137,7 @@ trading-agents-a2a/
 │   ├── sentiment/
 │   └── debate/
 ├── common/              # shared schemas, prompts, model config
+│   └── telemetry.py     # OTel setup + trace-context inject/extract + Langfuse wiring
 ├── tests/
 ├── scripts/run_all.sh   # launch all agents + run a query
 └── pyproject.toml
@@ -147,23 +152,48 @@ Each agent folder has the same shape: `executor.py` (the `AgentExecutor`), `card
 - **A2A task `failed` / timeout:** per-call `httpx` timeout; one bounded retry, then propagate.
 - **Malformed LLM output (no clear BUY/HOLD/SELL):** debate agent re-prompts once, then defaults to `HOLD` with a flagged note.
 
-## 10. Testing Strategy
+## 10. Observability
+
+Observability is a first-class goal, not an afterthought: a distributed multi-agent system is hard to debug without it, and a **single trace spanning the Python orchestrator → Python agents → the Java/Spring agent** is the clearest proof of the cross-tech coordination thesis.
+
+### 10.1 Distributed tracing (centerpiece) — OpenTelemetry
+- Every request gets one **trace**; each agent call and LLM call is a **span**, forming one tree across all processes.
+- **W3C `traceparent` context is propagated across A2A boundaries** — injected by the orchestrator into the A2A message metadata / HTTP headers, extracted by each agent server so its spans attach to the same trace. This is the language-agnostic mechanism that makes the Java agent (Phase 2) appear in the same trace.
+- Standard span attributes: `agent.name`, `ticker`, `a2a.method`, node name, latency, status; errors recorded as span events.
+- `common/telemetry.py` centralizes OTel SDK setup and the inject/extract helpers so every agent wires it identically.
+
+### 10.2 LLM / agent observability — Langfuse
+- Captures per-LLM-call **token usage, cost, latency, and prompt/response**, plus the bull-vs-bear **debate turns** as nested observations.
+- Langfuse is OTel-native, so it receives the same trace tree; the orchestrator's LangGraph run and each agent's LLM calls appear under one trace.
+- Open-source and self-hostable via Docker (no SaaS lock-in); the Java agent uses the Langfuse Java SDK so it is covered too.
+- Run locally via a `docker-compose` for Langfuse (added under `scripts/`); falls back to no-op exporters when Langfuse env vars are absent, so the app runs without it.
+
+### 10.3 Structured logging & metrics
+- `structlog` emits JSON logs; every log line carries the current `trace_id` so logs and traces cross-reference.
+- Lightweight metrics (counters/histograms via OTel): per-agent request count, success/failure, A2A call duration, LLM token totals.
+
+### 10.4 Graceful absence
+All telemetry is opt-in via env vars (`OTEL_EXPORTER_OTLP_ENDPOINT`, `LANGFUSE_*`). When unset, exporters are no-ops — tests and quick local runs incur zero telemetry overhead and need no running backend.
+
+## 11. Testing Strategy
 
 - **Unit:** each `AgentExecutor`'s core logic with the LLM call mocked → deterministic.
 - **A2A contract test:** spin up each agent, fetch its Agent Card, send one `message/send`, assert a well-formed Task/Artifact returns.
 - **Orchestrator integration:** run the full graph against **stub A2A agents** (fixed responses) — verifies fan-out/join/sequencing with no LLM cost or flakiness.
 - **Phase-2 swap test:** the same contract test must pass against the Java agent unchanged — the proof of interop.
+- **Trace-propagation test:** with an in-memory OTel span exporter, assert that an orchestrator request and the downstream stub-agent calls share **one trace id** (parent/child spans) — guards the cross-agent context propagation.
 
-## 11. Phasing / Milestones
+## 12. Phasing / Milestones
 
-- **M1:** One Python A2A agent (Fundamentals) + a minimal orchestrator that calls it. End-to-end "hello A2A."
-- **M2:** All three Python agents + full LangGraph flow (parallel fan-out + debate). **Phase 1 complete — a standalone working project.**
-- **M3:** Swap Fundamentals for the Spring Boot agent, orchestrator untouched. **The interop money-shot.**
+- **M1:** One Python A2A agent (Fundamentals) + a minimal orchestrator that calls it. End-to-end "hello A2A." OTel scaffolding in `common/telemetry.py` from the start (no-op when unconfigured).
+- **M2:** All three Python agents + full LangGraph flow (parallel fan-out + debate). Trace-context propagation across A2A + Langfuse wired. **Phase 1 complete — a standalone working project with end-to-end traces.**
+- **M3:** Swap Fundamentals for the Spring Boot agent, orchestrator untouched, **and the Java agent appears in the same Langfuse trace.** The interop money-shot.
 - **M4 (optional):** FastAPI/web entry + LangGraph diagram export for the demo.
 
-## 12. Risks & Notes
+## 13. Risks & Notes
 
-- **a2a-sdk API churn:** the SDK is young; pin a version and verify the exact `AgentExecutor`/client API at implementation time.
-- **Python 3.14:** confirm a2a-sdk + langgraph + anthropic wheels support 3.14; fall back to a 3.12 venv if needed.
+- **a2a-sdk API churn:** the SDK is young; pin a version and verify the exact `AgentExecutor`/client API at implementation time. Confirm where to attach/read trace-context metadata on A2A messages.
+- **Python 3.14:** confirm a2a-sdk + langgraph + anthropic + opentelemetry + langfuse wheels support 3.14; fall back to a 3.12 venv if needed.
 - **LLM cost/flakiness in tests:** mitigated by mocking LLM in unit tests and stubbing agents in integration tests.
+- **Observability overhead:** all telemetry is opt-in via env vars and no-op when unset, so it never blocks local dev or tests.
 - **Disclaimer:** outputs and README must state this is a technical demo of agent coordination, **not financial advice**.
