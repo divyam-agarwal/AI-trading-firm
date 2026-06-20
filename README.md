@@ -24,3 +24,7 @@ Inspired by [TauricResearch/TradingAgents](https://github.com/TauricResearch/Tra
 ## Tech
 
 Python · A2A · LangGraph · Claude (Anthropic SDK) · OpenTelemetry · Langfuse
+
+## Python version
+
+Targets Python 3.12+. Venv built with Python 3.13.7 (`/usr/local/bin/python3.13`); python3.12 is not present on this machine.
