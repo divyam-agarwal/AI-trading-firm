@@ -10,7 +10,8 @@ from common.a2a_server import build_agent_app
 def _serve(app, port):
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     threading.Thread(target=server.run, daemon=True).start()
-    time.sleep(1.5)
+    while not server.started:
+        time.sleep(0.05)
     return server
 
 
