@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-19
 **Status:** Approved (design) — pending spec review before implementation
-**Author:** Divyam (with Claude)
+**Author:** Divyam
 
 ## 1. Purpose & Goals
 
@@ -18,7 +18,7 @@ The domain is a **financial analysis crew** inspired by [TauricResearch/TradingA
 - Agents run as independent processes communicating over **A2A** (JSON-RPC/HTTP), discovered via **Agent Cards**.
 - The orchestration flow is **predefined and visualizable** (a LangGraph `StateGraph`).
 - **Proof of interop:** one Python agent can be replaced by a **Java/Spring Boot** agent at the same A2A contract, with **zero changes** to the orchestrator.
-- **End-to-end observability:** a single distributed trace spans the orchestrator and every agent (including the Java one), with LLM token/cost/prompt detail visible in Langfuse.
+- **Observability (phased):** Phase 1 propagates W3C trace context across A2A boundaries (client-side injection by the orchestrator). Full cross-process span continuation — agent servers extracting and parenting spans into the same trace — is a follow-up goal delivered with the Java agent in a later phase. LLM token/cost/prompt detail is visible in Langfuse.
 
 ### Non-goals (YAGNI)
 - Real trading, brokerage integration, or real money. This is a coordination demo, **not financial advice**.
@@ -158,7 +158,7 @@ Observability is a first-class goal, not an afterthought: a distributed multi-ag
 
 ### 10.1 Distributed tracing (centerpiece) — OpenTelemetry
 - Every request gets one **trace**; each agent call and LLM call is a **span**, forming one tree across all processes.
-- **W3C `traceparent` context is propagated across A2A boundaries** — injected by the orchestrator into the A2A message metadata / HTTP headers, extracted by each agent server so its spans attach to the same trace. This is the language-agnostic mechanism that makes the Java agent (Phase 2) appear in the same trace.
+- **W3C `traceparent` context is propagated across A2A boundaries (Phase 1: client-side injection only)** — the orchestrator injects trace context into outgoing A2A message metadata (best-effort). Phase 1 does *not* yet implement server-side extraction: agent servers do not extract and continue the trace, so spans from agent processes do not yet attach to the orchestrator's trace tree. Full cross-process span parenting — including the Java agent (Phase 2) appearing in the same trace — is a follow-up goal for a later phase.
 - Standard span attributes: `agent.name`, `ticker`, `a2a.method`, node name, latency, status; errors recorded as span events.
 - `common/telemetry.py` centralizes OTel SDK setup and the inject/extract helpers so every agent wires it identically.
 

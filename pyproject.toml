@@ -1,0 +1,27 @@
+[project]
+name = "trading-agents-a2a"
+version = "0.1.0"
+description = "Showcase: heterogeneous AI agents coordinating over A2A with a LangGraph orchestrator. Technical demo, not financial advice."
+requires-python = ">=3.10"
+dependencies = [
+    "a2a-sdk==1.1.0",
+    "uvicorn",
+    "starlette",
+    "httpx",
+    "langgraph",
+    "anthropic",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp",
+    "langfuse",
+    "structlog",
+    "sse-starlette",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio"]
+
+[tool.setuptools.packages.find]
+include = ["agents*", "common*", "orchestrator*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

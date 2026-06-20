@@ -12,7 +12,7 @@ Inspired by [TauricResearch/TradingAgents](https://github.com/TauricResearch/Tra
 - **Fundamentals Analyst** — valuation signals (Python; later swappable for a Java/Spring service at the same A2A contract).
 - **News & Sentiment Analyst** — news sentiment scoring.
 - **Research & Debate Analyst** — bull-vs-bear synthesis into a BUY / HOLD / SELL memo.
-- **Observability** — end-to-end distributed tracing (OpenTelemetry) and LLM observability (Langfuse), where a single trace spans every agent.
+- **Observability** — distributed tracing (OpenTelemetry) and LLM observability (Langfuse). Phase 1 propagates W3C trace context across A2A calls (client-side injection into message metadata). Full cross-process span continuation — agent servers extracting and parenting spans into the same trace — lands with the Java agent in a later phase.
 
 ## Status
 
@@ -24,3 +24,17 @@ Inspired by [TauricResearch/TradingAgents](https://github.com/TauricResearch/Tra
 ## Tech
 
 Python · A2A · LangGraph · Claude (Anthropic SDK) · OpenTelemetry · Langfuse
+
+## Python version
+
+Targets Python 3.12+. Venv built with Python 3.13.7 (`/usr/local/bin/python3.13`); python3.12 is not present on this machine.
+
+## Run (Phase 1)
+
+```bash
+pip install -e ".[dev]"
+export ANTHROPIC_API_KEY=sk-ant-...
+./scripts/run_all.sh AAPL
+```
+
+Optional observability: set `OTEL_EXPORTER_OTLP_ENDPOINT` and `LANGFUSE_*` to send traces to a collector / Langfuse.
