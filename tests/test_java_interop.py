@@ -29,10 +29,14 @@ pytestmark = pytest.mark.skipif(
 
 
 def _build_jar() -> None:
-    subprocess.run(
-        ["mvn", "-q", "-f", str(JAVA_DIR / "pom.xml"), "package", "-DskipTests"],
-        check=True,
+    result = subprocess.run(
+        ["mvn", "-f", str(JAVA_DIR / "pom.xml"), "package", "-DskipTests"],
+        capture_output=True, text=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Maven build failed (exit {result.returncode}):\n{result.stdout}\n{result.stderr}"
+        )
 
 
 def _wait_for_port(port: int, timeout: float = 40.0) -> None:
@@ -66,7 +70,9 @@ def java_agent():
 def test_agent_card_resolves(java_agent):
     card = httpx.get(f"{java_agent}/.well-known/agent-card.json", timeout=10).json()
     assert card["name"] == "Fundamentals Analyst"
-    assert card["supportedInterfaces"][0]["url"] == f"{BASE_URL}/"
+    interfaces = card.get("supportedInterfaces", [])
+    assert interfaces, f"card missing supportedInterfaces: {card}"
+    assert interfaces[0].get("url") == f"{BASE_URL}/", interfaces[0]
 
 
 def test_python_client_round_trips_against_java(java_agent):
