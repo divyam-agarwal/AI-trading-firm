@@ -26,8 +26,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- Official Anthropic Java SDK. Verify the latest version on Maven Central
-             (search "com.anthropic anthropic-java"); bump if the build can't resolve it. -->
         <dependency>
             <groupId>com.anthropic</groupId>
             <artifactId>anthropic-java</artifactId>

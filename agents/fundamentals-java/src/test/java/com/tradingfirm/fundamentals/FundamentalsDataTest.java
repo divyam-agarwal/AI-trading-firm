@@ -18,8 +18,9 @@ class FundamentalsDataTest {
 
     @Test
     void tickerIsUpperCased() {
-        assertEquals("TSLA", FundamentalsData.load("tsla").ticker());
-        assertEquals(62.0, FundamentalsData.load("tsla").peRatio());
+        FundamentalsData.Facts f = FundamentalsData.load("tsla");
+        assertEquals("TSLA", f.ticker());
+        assertEquals(62.0, f.peRatio());
     }
 
     @Test
