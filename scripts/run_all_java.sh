@@ -13,9 +13,9 @@ fi
 
 . .venv/bin/activate
 
+trap 'kill ${F:-} ${S:-} ${D:-} 2>/dev/null || true' EXIT
 java -jar "$JAR" & F=$!
 python -m agents.sentiment.server & S=$!
 python -m agents.debate.server & D=$!
-trap 'kill $F $S $D 2>/dev/null || true' EXIT
 sleep 5
 python -m orchestrator.main "${1:-AAPL}"
