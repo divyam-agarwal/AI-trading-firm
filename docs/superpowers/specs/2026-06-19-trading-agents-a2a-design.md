@@ -187,7 +187,7 @@ All telemetry is opt-in via env vars (`OTEL_EXPORTER_OTLP_ENDPOINT`, `LANGFUSE_*
 
 - **M1:** One Python A2A agent (Fundamentals) + a minimal orchestrator that calls it. End-to-end "hello A2A." OTel scaffolding in `common/telemetry.py` from the start (no-op when unconfigured).
 - **M2:** All three Python agents + full LangGraph flow (parallel fan-out + debate). Trace-context propagation across A2A + Langfuse wired. **Phase 1 complete — a standalone working project with end-to-end traces.**
-- **M3:** Swap Fundamentals for the Spring Boot agent, orchestrator untouched, **and the Java agent appears in the same Langfuse trace.** The interop money-shot.
+- **M3 (Scope A — done):** Fundamentals swapped for a Spring Boot A2A agent at the identical contract; orchestrator untouched. The interop money-shot. Same-Langfuse-trace for the Java agent is deferred to the tracing milestone (server-side trace extraction + Langfuse, done once across both languages).
 - **M4 (optional):** FastAPI/web entry + LangGraph diagram export for the demo.
 
 ## 13. Risks & Notes

@@ -38,3 +38,22 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Optional observability: set `OTEL_EXPORTER_OTLP_ENDPOINT` and `LANGFUSE_*` to send traces to a collector / Langfuse.
+
+### Cross-tech interop (M3): Java/Spring Boot Fundamentals agent
+
+The Fundamentals analyst (`:9001`) also ships as a **Java/Spring Boot** A2A service
+(`agents/fundamentals-java/`) serving the identical A2A contract. The LangGraph
+orchestrator calls it with **zero changes** — proof that heterogeneous agents coordinate
+over the standard A2A wire protocol.
+
+```bash
+# Build once (JDK 21 + Maven):
+mvn -q -f agents/fundamentals-java/pom.xml package
+
+# Run the full pipeline with the Java agent on :9001 (Python sentiment/debate on :9002/:9003):
+set -a; source .env; set +a
+./scripts/run_all_java.sh AAPL
+```
+
+Java agent stack: Spring Boot + a small A2A controller, Claude via the Anthropic Java SDK.
+The all-Python pipeline (`./scripts/run_all.sh`) is unchanged. Demo only, not financial advice.
