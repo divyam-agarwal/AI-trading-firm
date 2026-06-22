@@ -25,14 +25,14 @@ class State(TypedDict, total=False):
 
 def build_graph(urls: dict):
     async def gather_fundamentals(state: State) -> dict:
-        return {"fundamentals": await call_agent(urls["fundamentals"], state["ticker"])}
+        return {"fundamentals": await call_agent(urls["fundamentals"], state["ticker"], agent_name="fundamentals")}
 
     async def gather_sentiment(state: State) -> dict:
-        return {"sentiment": await call_agent(urls["sentiment"], state["ticker"])}
+        return {"sentiment": await call_agent(urls["sentiment"], state["ticker"], agent_name="sentiment")}
 
     async def debate(state: State) -> dict:
         joined = f"FUNDAMENTALS:\n{state['fundamentals']}{SEP}{state['sentiment']}"
-        memo = await call_agent(urls["debate"], joined)
+        memo = await call_agent(urls["debate"], joined, agent_name="debate")
         return {"memo": memo, "recommendation": parse_recommendation(memo)}
 
     g = StateGraph(State)
