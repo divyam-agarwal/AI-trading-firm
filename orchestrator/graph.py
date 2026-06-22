@@ -4,6 +4,7 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from agents.debate.logic import parse_recommendation
+from common import telemetry
 from orchestrator.a2a_client import call_agent
 
 SEP = "\n\nSENTIMENT:\n"
@@ -49,4 +50,6 @@ def build_graph(urls: dict):
 
 async def run(ticker: str, urls: dict[str, str] | None = None) -> State:
     graph = build_graph(urls or DEFAULT_URLS)
-    return await graph.ainvoke({"ticker": ticker})
+    with telemetry.tracer(__name__).start_as_current_span(f"analyze {ticker}") as span:
+        span.set_attribute("ticker", ticker)
+        return await graph.ainvoke({"ticker": ticker})
