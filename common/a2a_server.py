@@ -22,16 +22,27 @@ from a2a.types import (
 )
 from a2a.utils.constants import DEFAULT_RPC_URL, PROTOCOL_VERSION_1_0, TransportProtocol
 
+from common import telemetry
+
 
 class _FunctionExecutor(AgentExecutor):
     """Wraps a plain ``handler(text: str) -> str`` callable as an A2A executor."""
 
-    def __init__(self, handler: Callable[[str], str]) -> None:
+    def __init__(self, handler: Callable[[str], str], name: str) -> None:
         self._handler = handler
+        self._name = name
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         text = context.get_user_input()
-        result = self._handler(text)
+        # Read the incoming W3C carrier (verified to live on context.metadata).
+        try:
+            carrier = dict(context.metadata or {})
+        except Exception:
+            carrier = {}
+        # Run the handler inside a server span that continues the remote trace,
+        # so any LLM span created inside the handler parents into this span.
+        with telemetry.server_span(self._name, carrier):
+            result = self._handler(text)
         await event_queue.enqueue_event(new_text_message(result, role=Role.ROLE_AGENT))
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
@@ -85,7 +96,7 @@ def build_agent_app(
     )
 
     request_handler = DefaultRequestHandler(
-        agent_executor=_FunctionExecutor(handler),
+        agent_executor=_FunctionExecutor(handler, name),
         task_store=InMemoryTaskStore(),
         agent_card=card,
     )
