@@ -1,5 +1,6 @@
 """OpenTelemetry + Langfuse setup. No-op when env vars are unset."""
 import os
+from contextlib import contextmanager
 
 from opentelemetry import trace
 from opentelemetry.context import Context
@@ -36,3 +37,24 @@ def inject(carrier: dict) -> dict:
 
 def extract(carrier: dict) -> Context:
     return _otel_extract(carrier)
+
+
+@contextmanager
+def server_span(name: str, carrier: dict):
+    """Continue a remote trace: extract context from *carrier* and run the
+    enclosed block inside a child span made current.
+
+    Best-effort: if extraction fails the block still runs (under a new span).
+    Exceptions raised inside the block are recorded on the span and re-raised.
+    """
+    try:
+        ctx = _otel_extract(carrier or {})
+    except Exception:
+        ctx = None
+    with trace.get_tracer(__name__).start_as_current_span(name, context=ctx) as span:
+        try:
+            yield span
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
+            raise

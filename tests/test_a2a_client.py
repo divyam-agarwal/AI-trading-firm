@@ -38,3 +38,23 @@ async def test_call_agent_round_trip():
         assert "REPLY[ping]" in out
     finally:
         server.should_exit = True
+
+
+async def test_call_agent_emits_client_span(span_exporter):
+    app = build_agent_app(
+        name="P", description="d", skill_id="p", skill_name="p",
+        url="http://127.0.0.1:9321/", handler=lambda t: "ok",
+    )
+    server = _serve(app, 9321)
+    try:
+        out = await call_agent("http://127.0.0.1:9321", "ping", agent_name="probe")
+    finally:
+        server.should_exit = True
+
+    assert out == "ok"
+    spans = [s for s in span_exporter.get_finished_spans() if s.name == "a2a SendMessage"]
+    assert len(spans) == 1
+    attrs = spans[0].attributes
+    assert attrs["server.url"] == "http://127.0.0.1:9321"
+    assert attrs["a2a.method"] == "SendMessage"
+    assert attrs["agent.name"] == "probe"

@@ -24,3 +24,19 @@ def test_complete_empty_when_no_text_block():
     fake_client.messages.create.return_value = fake_resp
     with patch.object(llm, "_client", return_value=fake_client):
         assert llm.complete("hi", model=llm.MODEL_DEBATE) == ""
+
+
+def test_complete_emits_llm_span(span_exporter):
+    fake_block = MagicMock(type="text", text="hi there")
+    fake_resp = MagicMock(content=[fake_block])
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value = fake_resp
+
+    with patch.object(llm, "_client", return_value=fake_client):
+        out = llm.complete("q", model=llm.MODEL_ANALYST)
+
+    assert out == "hi there"
+    spans = [s for s in span_exporter.get_finished_spans()
+             if s.name == f"chat {llm.MODEL_ANALYST}"]
+    assert len(spans) == 1
+    assert spans[0].attributes["gen_ai.request.model"] == llm.MODEL_ANALYST

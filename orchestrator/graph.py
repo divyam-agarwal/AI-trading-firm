@@ -4,6 +4,7 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from agents.debate.logic import parse_recommendation
+from common import telemetry
 from orchestrator.a2a_client import call_agent
 
 SEP = "\n\nSENTIMENT:\n"
@@ -25,14 +26,14 @@ class State(TypedDict, total=False):
 
 def build_graph(urls: dict):
     async def gather_fundamentals(state: State) -> dict:
-        return {"fundamentals": await call_agent(urls["fundamentals"], state["ticker"])}
+        return {"fundamentals": await call_agent(urls["fundamentals"], state["ticker"], agent_name="fundamentals")}
 
     async def gather_sentiment(state: State) -> dict:
-        return {"sentiment": await call_agent(urls["sentiment"], state["ticker"])}
+        return {"sentiment": await call_agent(urls["sentiment"], state["ticker"], agent_name="sentiment")}
 
     async def debate(state: State) -> dict:
         joined = f"FUNDAMENTALS:\n{state['fundamentals']}{SEP}{state['sentiment']}"
-        memo = await call_agent(urls["debate"], joined)
+        memo = await call_agent(urls["debate"], joined, agent_name="debate")
         return {"memo": memo, "recommendation": parse_recommendation(memo)}
 
     g = StateGraph(State)
@@ -49,4 +50,6 @@ def build_graph(urls: dict):
 
 async def run(ticker: str, urls: dict[str, str] | None = None) -> State:
     graph = build_graph(urls or DEFAULT_URLS)
-    return await graph.ainvoke({"ticker": ticker})
+    with telemetry.tracer(__name__).start_as_current_span(f"analyze {ticker}") as span:
+        span.set_attribute("ticker", ticker)
+        return await graph.ainvoke({"ticker": ticker})
