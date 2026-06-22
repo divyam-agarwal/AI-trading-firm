@@ -12,7 +12,7 @@ Inspired by [TauricResearch/TradingAgents](https://github.com/TauricResearch/Tra
 - **Fundamentals Analyst** — valuation signals (Python; later swappable for a Java/Spring service at the same A2A contract).
 - **News & Sentiment Analyst** — news sentiment scoring.
 - **Research & Debate Analyst** — bull-vs-bear synthesis into a BUY / HOLD / SELL memo.
-- **Observability** — distributed tracing (OpenTelemetry) and LLM observability (Langfuse). Phase 1 propagates W3C trace context across A2A calls (client-side injection into message metadata). Full cross-process span continuation — agent servers extracting and parenting spans into the same trace — lands with the Java agent in a later phase.
+- **Observability** — distributed tracing (OpenTelemetry) and LLM observability (Langfuse). The Python orchestrator and both Python agents share one trace: the orchestrator opens a root span, injects W3C trace context into each A2A call, and the agent servers extract it and parent their server and LLM spans into the same trace. The Java/Spring agent joining the trace, plus a Langfuse viewer with token/cost, land in later milestones.
 
 ## Status
 

@@ -158,7 +158,7 @@ Observability is a first-class goal, not an afterthought: a distributed multi-ag
 
 ### 10.1 Distributed tracing (centerpiece) — OpenTelemetry
 - Every request gets one **trace**; each agent call and LLM call is a **span**, forming one tree across all processes.
-- **W3C `traceparent` context is propagated across A2A boundaries (Phase 1: client-side injection only)** — the orchestrator injects trace context into outgoing A2A message metadata (best-effort). Phase 1 does *not* yet implement server-side extraction: agent servers do not extract and continue the trace, so spans from agent processes do not yet attach to the orchestrator's trace tree. Full cross-process span parenting — including the Java agent (Phase 2) appearing in the same trace — is a follow-up goal for a later phase.
+- **W3C `traceparent` context is propagated across A2A boundaries and continued server-side (Python agents).** The orchestrator opens a root span and injects trace context into outgoing A2A message metadata (best-effort); each Python agent server extracts it from the request metadata and starts its server span (and the nested LLM span) as children, so the orchestrator → Python-agent → LLM spans form one trace tree. The Java/Spring agent extracting the `traceparent` and emitting spans into the same trace is a follow-up milestone (Scope B).
 - Standard span attributes: `agent.name`, `ticker`, `a2a.method`, node name, latency, status; errors recorded as span events.
 - `common/telemetry.py` centralizes OTel SDK setup and the inject/extract helpers so every agent wires it identically.
 
