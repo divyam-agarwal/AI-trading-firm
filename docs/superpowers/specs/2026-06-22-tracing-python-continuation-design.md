@@ -18,7 +18,7 @@ Scope A delivers a continuous trace tree spanning the orchestrator and both Pyth
 
 ### Success criterion
 
-An in-process test with an `InMemorySpanExporter` asserts that the **orchestrator root span, the A2A client spans, the agent server spans, and the LLM spans all share one `trace_id`**, with correct parent/child relationships (server span is a child of the client-injected context; LLM span is a child of the server span). The pre-existing 18 tests stay green; the full suite remains key-free.
+An in-process test with an `InMemorySpanExporter` asserts that the **orchestrator root span, the A2A client spans, the agent server spans, and the LLM spans all share one `trace_id`**, with correct parent/child relationships (server span is a child of the client-injected context; LLM span is a child of the server span). The pre-existing 20 tests stay green; the full suite remains key-free.
 
 ### Scope (decided during brainstorming)
 
@@ -82,7 +82,7 @@ One `trace_id` throughout; each agent's work parents into the orchestrator's tra
 
 - **Trace continuation test** (extends `tests/test_trace_propagation.py` or a new `tests/test_trace_continuation.py`): configure a global `TracerProvider` + `InMemorySpanExporter` (the pattern Phase 1's trace test already uses); open a root span; spin up a **real in-process agent** via `build_agent_app` with a **stub handler (no LLM)**; call `call_agent` within the root span; assert the captured **server span shares the root span's `trace_id`** and its parent is the client-injected context. This is the core proof of server-side continuation.
 - **LLM-span unit test**: mock the Anthropic client; assert `complete()` emits a span carrying `gen_ai.request.model` and still returns the text.
-- **No regression**: the existing 18 tests stay green; full suite key-free (`python -m pytest -q`).
+- **No regression**: the existing 20 tests stay green; full suite key-free (`python -m pytest -q`).
 
 ## 8. Files Touched
 
