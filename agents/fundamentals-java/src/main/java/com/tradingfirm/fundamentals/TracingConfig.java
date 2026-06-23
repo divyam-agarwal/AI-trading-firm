@@ -12,6 +12,8 @@ import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -32,9 +34,9 @@ public class TracingConfig {
         String endpoint = System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT");
         if (endpoint != null && !endpoint.isBlank()) {
             String base = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
-            OtlpHttpSpanExporter exporter = OtlpHttpSpanExporter.builder()
-                    .setEndpoint(base + "/v1/traces")
-                    .build();
+            var exporterBuilder = OtlpHttpSpanExporter.builder().setEndpoint(base + "/v1/traces");
+            parseHeaders(System.getenv("OTEL_EXPORTER_OTLP_HEADERS")).forEach(exporterBuilder::addHeader);
+            OtlpHttpSpanExporter exporter = exporterBuilder.build();
             builder.addSpanProcessor(BatchSpanProcessor.builder(exporter).build());
         }
 
@@ -47,5 +49,21 @@ public class TracingConfig {
     @Bean
     public Tracer tracer(OpenTelemetry openTelemetry) {
         return openTelemetry.getTracer("fundamentals-java");
+    }
+
+    /** Parse OTEL_EXPORTER_OTLP_HEADERS ("k=v,k2=v2") into a header map.
+     *  Splits on the first '=' so base64 '=' padding in values is preserved. */
+    static Map<String, String> parseHeaders(String raw) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        if (raw == null || raw.isBlank()) {
+            return headers;
+        }
+        for (String pair : raw.split(",")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0) {
+                headers.put(pair.substring(0, eq).trim(), pair.substring(eq + 1).trim());
+            }
+        }
+        return headers;
     }
 }
