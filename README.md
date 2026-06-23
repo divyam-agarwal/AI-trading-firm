@@ -12,7 +12,7 @@ Inspired by [TauricResearch/TradingAgents](https://github.com/TauricResearch/Tra
 - **Fundamentals Analyst** — valuation signals (Python; later swappable for a Java/Spring service at the same A2A contract).
 - **News & Sentiment Analyst** — news sentiment scoring.
 - **Research & Debate Analyst** — bull-vs-bear synthesis into a BUY / HOLD / SELL memo.
-- **Observability** — distributed tracing (OpenTelemetry) and LLM observability (Langfuse). The orchestrator and all agents — Python and the Java/Spring agent — share one trace: the orchestrator opens a root span and injects W3C trace context into each A2A call, and every agent server (including the Java agent via the OpenTelemetry Java SDK) extracts it from the message metadata and parents its server and LLM spans into the same trace. A Langfuse viewer with token/cost lands in a later milestone.
+- **Observability** — distributed tracing (OpenTelemetry) into a self-hosted **Langfuse**. The orchestrator and all agents — Python and the Java/Spring agent — share one trace: the orchestrator opens a root span and injects W3C trace context into each A2A call, and every agent server extracts it and parents its server and LLM spans into the same trace. The LLM spans carry token usage and the prompt/response, and Langfuse (OTLP-native; no SDK) renders the cross-language tree with derived cost. Run it locally via `docker/langfuse/` (see its README); fully no-op when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset.
 
 ## Status
 
