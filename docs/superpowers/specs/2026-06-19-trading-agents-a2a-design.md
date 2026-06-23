@@ -163,10 +163,10 @@ Observability is a first-class goal, not an afterthought: a distributed multi-ag
 - `common/telemetry.py` centralizes OTel SDK setup and the inject/extract helpers so every agent wires it identically.
 
 ### 10.2 LLM / agent observability — Langfuse
-- Captures per-LLM-call **token usage, cost, latency, and prompt/response**, plus the bull-vs-bear **debate turns** as nested observations.
-- Langfuse is OTel-native, so it receives the same trace tree; the orchestrator's LangGraph run and each agent's LLM calls appear under one trace.
-- Open-source and self-hostable via Docker (no SaaS lock-in); the Java agent uses the Langfuse Java SDK so it is covered too.
-- Run locally via a `docker-compose` for Langfuse (added under `scripts/`); falls back to no-op exporters when Langfuse env vars are absent, so the app runs without it.
+- Each LLM span carries **token usage** (`gen_ai.usage.input_tokens`/`output_tokens`) and the **prompt/response** (`langfuse.observation.input`/`output`); Langfuse derives **cost** from the model id + token counts.
+- Langfuse is **OTel-native**: it ingests the same OTLP export both agents already emit, so the orchestrator's LangGraph run and every agent's LLM call (Python and Java) appear under one trace — no Langfuse SDK in either language.
+- Open-source and self-hosted via Docker (no SaaS lock-in). Authentication is a `Basic` `Authorization` header on the OTLP export (`OTEL_EXPORTER_OTLP_HEADERS`).
+- Run locally via the compose + runbook under `docker/langfuse/`; falls back to no-op exporters when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, so the app runs without it.
 
 ### 10.3 Structured logging & metrics
 - `structlog` emits JSON logs; every log line carries the current `trace_id` so logs and traces cross-reference.
