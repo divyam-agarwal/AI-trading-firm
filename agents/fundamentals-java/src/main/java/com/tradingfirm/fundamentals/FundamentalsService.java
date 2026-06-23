@@ -3,6 +3,10 @@ package com.tradingfirm.fundamentals;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -12,10 +16,14 @@ public class FundamentalsService {
     public static final String SYSTEM =
             "You are a fundamentals analyst. Be concise. This is a technical demo, not financial advice.";
 
-    private final AnthropicClient client;
+    static final String MODEL = "claude-sonnet-4-6";
 
-    public FundamentalsService(@Lazy AnthropicClient client) {
+    private final AnthropicClient client;
+    private final Tracer tracer;
+
+    public FundamentalsService(@Lazy AnthropicClient client, Tracer tracer) {
         this.client = client;
+        this.tracer = tracer;
     }
 
     public String analyze(String ticker) {
@@ -28,13 +36,23 @@ public class FundamentalsService {
         // Minimal request: model + maxTokens + system + user message ONLY.
         // No temperature/top_p/top_k/budget_tokens/thinking (these 400 on current models).
         MessageCreateParams params = MessageCreateParams.builder()
-                .model("claude-sonnet-4-6")
+                .model(MODEL)
                 .maxTokens(1024L)
                 .system(SYSTEM)
                 .addUserMessage(prompt)
                 .build();
-        Message message = client.messages().create(params);
-        return extractText(message);
+        Span span = tracer.spanBuilder("chat " + MODEL).startSpan();
+        span.setAttribute("gen_ai.request.model", MODEL);
+        try (Scope scope = span.makeCurrent()) {
+            Message message = client.messages().create(params);
+            return extractText(message);
+        } catch (RuntimeException e) {
+            span.recordException(e);
+            span.setStatus(StatusCode.ERROR);
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 
     String buildPrompt(FundamentalsData.Facts f) {
