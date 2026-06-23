@@ -35,7 +35,7 @@ Scope A's analogous unknown ("does `context.metadata` carry the traceparent?") w
 
 | Span | Where | Name | Key attributes |
 |---|---|---|---|
-| **Server** | `A2AController.rpc` — extract `params.metadata`, open as child, run handler inside | `fundamentals` | `agent.name` |
+| **Server** | `A2AController.rpc` — extract `params.metadata`, open as child, run handler inside | `Fundamentals Analyst` | `agent.name` |
 | **LLM** | `FundamentalsService.analyze` — around `client.messages().create(...)` | `chat claude-sonnet-4-6` | `gen_ai.request.model` |
 
 Because `analyze()` runs inside the server span's scope, the LLM span becomes a child of the server span, which is a child of the orchestrator's client span (via the extracted remote context) — one unbroken trace. Span names and the `gen_ai.request.model` / `agent.name` attribute keys match the Python side for a consistent trace tree.
@@ -55,7 +55,7 @@ Each unit is small, single-responsibility, and independently testable:
 ```
 orchestrator client span ──traceparent in params.metadata──▶ A2AController.rpc (Java :9001)
   extract(params.metadata) → remote context
-  server span "fundamentals"              [agent.name]        (child of remote context)
+  server span "Fundamentals Analyst"      [agent.name]        (child of remote context)
     FundamentalsService.analyze
       llm span "chat claude-sonnet-4-6"    [gen_ai.request.model]  (child of server span)
         AnthropicClient.messages().create(...)

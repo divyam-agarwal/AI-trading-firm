@@ -46,6 +46,11 @@ public class Telemetry {
     }
 
     public Span serverSpan(String name, Map<String, String> carrier) {
-        return tracer.spanBuilder(name).setParent(extract(carrier)).startSpan();
+        try {
+            return tracer.spanBuilder(name).setParent(extract(carrier)).startSpan();
+        } catch (RuntimeException e) {
+            // Best-effort: never let span creation break request handling.
+            return Span.current();
+        }
     }
 }
