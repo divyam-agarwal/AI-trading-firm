@@ -1,5 +1,6 @@
 package com.tradingfirm.fundamentals;
 
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -8,7 +9,8 @@ class FundamentalsServiceTest {
 
     // Pass null client: these tests exercise only pure prompt-building + fixture lookup,
     // which never touch the client.
-    private final FundamentalsService service = new FundamentalsService(null);
+    private final FundamentalsService service =
+            new FundamentalsService(null, OpenTelemetry.noop().getTracer("test"));
 
     @Test
     void systemPromptMatchesPythonAgent() {
