@@ -2,6 +2,7 @@ package com.tradingfirm.fundamentals;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.models.messages.Message;
+import com.anthropic.models.messages.Usage;
 import com.anthropic.services.blocking.MessageService;
 import com.tradingfirm.fundamentals.dto.A2AMessage;
 import com.tradingfirm.fundamentals.dto.JsonRpcRequest;
@@ -104,6 +105,37 @@ class TracingContinuationTest {
         assertEquals(server.getSpanId(), llm.getParentSpanId());
         assertEquals("claude-sonnet-4-6", llm.getAttributes().get(
                 io.opentelemetry.api.common.AttributeKey.stringKey("gen_ai.request.model")));
+    }
+
+    @Test
+    void llmSpanRecordsUsageAndIo() {
+        String[] ids = new String[2];
+        Map<String, String> carrier = remoteCarrier(ids);
+
+        Usage usage = mock(Usage.class);
+        when(usage.inputTokens()).thenReturn(12L);
+        when(usage.outputTokens()).thenReturn(34L);
+        Message message = mock(Message.class);
+        when(message.content()).thenReturn(List.of());
+        when(message.usage()).thenReturn(usage);
+        MessageService messages = mock(MessageService.class);
+        when(messages.create(any())).thenReturn(message);
+        AnthropicClient client = mock(AnthropicClient.class);
+        when(client.messages()).thenReturn(messages);
+
+        FundamentalsService service = new FundamentalsService(client, tracer);
+        A2AController controller = new A2AController(service, telemetry);
+        controller.rpc(request(carrier));
+
+        SpanData llm = exporter.getFinishedSpanItems().stream()
+                .filter(s -> s.getName().equals("chat claude-sonnet-4-6"))
+                .findFirst().orElseThrow();
+        var attrs = llm.getAttributes();
+        assertEquals(12L, attrs.get(io.opentelemetry.api.common.AttributeKey.longKey("gen_ai.usage.input_tokens")));
+        assertEquals(34L, attrs.get(io.opentelemetry.api.common.AttributeKey.longKey("gen_ai.usage.output_tokens")));
+        assertNotNull(attrs.get(io.opentelemetry.api.common.AttributeKey.stringKey("langfuse.observation.input")));
+        // content() is empty -> output is "" but the attribute is still set
+        assertNotNull(attrs.get(io.opentelemetry.api.common.AttributeKey.stringKey("langfuse.observation.output")));
     }
 
     @Test

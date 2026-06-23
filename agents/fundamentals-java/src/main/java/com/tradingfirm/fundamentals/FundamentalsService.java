@@ -3,6 +3,7 @@ package com.tradingfirm.fundamentals;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
+import com.anthropic.models.messages.Usage;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -43,9 +44,13 @@ public class FundamentalsService {
                 .build();
         Span span = tracer.spanBuilder("chat " + MODEL).startSpan();
         span.setAttribute("gen_ai.request.model", MODEL);
+        span.setAttribute("langfuse.observation.input", prompt);
         try (Scope scope = span.makeCurrent()) {
             Message message = client.messages().create(params);
-            return extractText(message);
+            String reply = extractText(message);
+            span.setAttribute("langfuse.observation.output", reply);
+            setUsage(span, message);
+            return reply;
         } catch (RuntimeException e) {
             span.recordException(e);
             span.setStatus(StatusCode.ERROR);
@@ -67,6 +72,17 @@ public class FundamentalsService {
     private static boolean stubEnabled() {
         String v = System.getenv("FUNDAMENTALS_LLM_STUB");
         return "1".equals(v) || "true".equalsIgnoreCase(v);
+    }
+
+    /** Best-effort: record token usage on the span when available. */
+    private static void setUsage(Span span, Message message) {
+        try {
+            Usage usage = message.usage();
+            span.setAttribute("gen_ai.usage.input_tokens", usage.inputTokens());
+            span.setAttribute("gen_ai.usage.output_tokens", usage.outputTokens());
+        } catch (RuntimeException e) {
+            // best-effort: never let usage capture break the call
+        }
     }
 
     /**
