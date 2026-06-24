@@ -1,0 +1,48 @@
+{
+  "name": "Trading Firm — Agent Metrics",
+  "description": "Design §10.3 metrics derived from A2A/LLM traces. Langfuse 3.x has no dashboard import API; recreate these widgets in the UI (Dashboards → New) using the view/metrics/dimensions/filters below. See README → Metrics.",
+  "widgets": [
+    {
+      "key": "requests_by_agent",
+      "title": "Requests by span name",
+      "chartType": "BAR_TIME_SERIES",
+      "view": "observations",
+      "metrics": [{"measure": "count", "aggregation": "count"}],
+      "dimensions": [{"field": "name"}],
+      "filters": []
+    },
+    {
+      "key": "success_failure",
+      "title": "Success / failure by level",
+      "chartType": "BAR_TIME_SERIES",
+      "view": "observations",
+      "metrics": [{"measure": "count", "aggregation": "count"}],
+      "dimensions": [{"field": "level"}],
+      "filters": []
+    },
+    {
+      "key": "latency_by_span",
+      "title": "Latency by span (p95 / avg)",
+      "chartType": "LINE_TIME_SERIES",
+      "view": "observations",
+      "metrics": [
+        {"measure": "latency", "aggregation": "p95"},
+        {"measure": "latency", "aggregation": "avg"}
+      ],
+      "dimensions": [{"field": "name"}],
+      "filters": []
+    },
+    {
+      "key": "tokens_by_model",
+      "title": "LLM tokens & cost by model",
+      "chartType": "BAR_TIME_SERIES",
+      "view": "observations",
+      "metrics": [
+        {"measure": "totalTokens", "aggregation": "sum"},
+        {"measure": "totalCost", "aggregation": "sum"}
+      ],
+      "dimensions": [{"field": "providedModelName"}],
+      "filters": []
+    }
+  ]
+}
