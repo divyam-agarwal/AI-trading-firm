@@ -45,3 +45,48 @@ In the Langfuse UI → Tracing → Traces, open the latest trace and confirm:
 docker compose -f docker/langfuse/docker-compose.yml down        # keep data
 docker compose -f docker/langfuse/docker-compose.yml down -v     # wipe volumes
 ```
+
+## Metrics (design §10.3)
+
+The four §10.3 metrics — per-agent request count, success/failure, A2A call duration,
+and LLM token totals — are **derived from the traces already in Langfuse**, not emitted
+as a separate signal. Langfuse computes every aggregate server-side; we just query it.
+
+### CLI report
+
+1. Bring the stack up and run an analysis so traces exist (see the verification section
+   above).
+2. Export the project keys (the same pair used for the OTLP `Authorization` header):
+
+   ```bash
+   export LANGFUSE_HOST=http://localhost:3000
+   export LANGFUSE_PUBLIC_KEY=pk-lf-...
+   export LANGFUSE_SECRET_KEY=sk-lf-...
+   ```
+3. Run the report (defaults to the last 24h; `--hours N`, or `--from/--to` ISO 8601):
+
+   ```bash
+   python scripts/metrics_report.py --hours 24
+   ```
+
+   With keys unset it prints a one-line hint and exits 0 (telemetry is opt-in).
+
+### Reproduce a metric with curl (no script)
+
+```bash
+curl -s -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" -G \
+  --data-urlencode 'query={"view":"observations","metrics":[{"measure":"count","aggregation":"count"}],"dimensions":[{"field":"name"}],"filters":[],"fromTimestamp":"2026-06-24T00:00:00Z","toTimestamp":"2026-06-25T00:00:00Z"}' \
+  http://localhost:3000/api/public/v2/metrics
+```
+
+### UI dashboard
+
+Langfuse 3.x has no dashboard import API, so `docker/langfuse/dashboard.json` is the
+version-controlled spec. To build it: **Dashboards → New dashboard**, then add one widget
+per entry in `dashboard.json`, copying its `view` / `metrics` / `dimensions` / `filters`
+and `chartType`. The widget queries are byte-identical to `common/metrics_queries.py`
+(a test enforces this).
+
+> Per-agent latency reads from the analyst **server** spans (distinct names). The client
+> `a2a SendMessage` spans share one name, so they show aggregate round-trip latency, not a
+> per-agent breakdown — see the design doc §6.1.
