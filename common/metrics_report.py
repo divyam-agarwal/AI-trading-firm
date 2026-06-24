@@ -16,7 +16,11 @@ from common.metrics_queries import QUERIES
 
 
 def metrics_url(host: str) -> str:
-    return host.rstrip("/") + "/api/public/v2/metrics"
+    # v1 Metrics API — works on self-hosted Langfuse 3.x (the version this repo pins).
+    # The /api/public/v2/metrics endpoint is Langfuse-v4-only (returns 404 on 3.x:
+    # "metrics v2 API is only available in a Langfuse v4 write mode"). Same query
+    # shape and {aggregation}_{measure} response naming, so only the path differs.
+    return host.rstrip("/") + "/api/public/metrics"
 
 
 def build_query_param(body: dict, *, frm: str, to: str) -> str:

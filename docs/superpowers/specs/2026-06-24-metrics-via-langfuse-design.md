@@ -50,7 +50,7 @@ explicitly out of scope here.
 
 ```
 (already done, Scope C)        (this milestone)
-agents + orchestrator  --OTLP-->  Langfuse  <--HTTP GET /api/public/v2/metrics--  metrics_report.py
+agents + orchestrator  --OTLP-->  Langfuse  <--HTTP GET /api/public/metrics (v1)--  metrics_report.py
                                   (ClickHouse aggregates)                          (prints a table)
                                        ^
                                        |  same query bodies described by
@@ -99,9 +99,11 @@ Thin Metrics-API client:
    `http://localhost:3000`), `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`.
 2. If keys are missing, print a friendly "metrics need Langfuse keys; see runbook"
    message and exit 0 (graceful absence, like the rest of the telemetry stack).
-3. For each query in `QUERIES`, GET `{host}/api/public/v2/metrics?query=<url-encoded
+3. For each query in `QUERIES`, GET `{host}/api/public/metrics?query=<url-encoded
    JSON>` with HTTP Basic auth (`public:secret`), over a time window from `--hours`
-   (default 24) or explicit `--from`/`--to` flags.
+   (default 24) or explicit `--from`/`--to` flags. (This is the **v1** Metrics API;
+   `/api/public/v2/metrics` is Langfuse-v4-only and 404s on the pinned 3.x — same query
+   shape, only the path differs. Caught during live verification 2026-06-24.)
 4. Format each result set as a small text table and print it.
 
 The script does **no aggregation** — it formats whatever rows Langfuse returns. Response

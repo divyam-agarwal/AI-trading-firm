@@ -6,7 +6,9 @@
 
 **Architecture:** A pure-data module defines the metric queries once. An importable `common/` module holds the report logic (config, HTTP, formatting); a thin `scripts/` entrypoint runs it. A committed `dashboard.json` mirrors the same queries as UI widget specs, kept honest by a consistency test. Langfuse does all aggregation server-side; our code only asks and formats.
 
-**Tech Stack:** Python 3.13 (venv), `httpx` (already a dep), `pytest`/`pytest-asyncio` (dev), Langfuse 3.195.0 self-hosted (`/api/public/v2/metrics`).
+**Tech Stack:** Python 3.13 (venv), `httpx` (already a dep), `pytest`/`pytest-asyncio` (dev), Langfuse 3.195.0 self-hosted.
+
+> **Post-implementation correction (live verification 2026-06-24):** the code/test blocks below use `/api/public/v2/metrics`, but that endpoint is **Langfuse-v4-only** and 404s on the pinned 3.x. The shipped code uses the **v1** path `/api/public/metrics` (identical query shape and `{aggregation}_{measure}` response). The blocks below are left as the original plan record; see `common/metrics_report.py` for the corrected path.
 
 ## Global Constraints
 
