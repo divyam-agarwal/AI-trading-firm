@@ -9,8 +9,8 @@ DASHBOARD = Path(__file__).resolve().parent.parent / "docker" / "langfuse" / "da
 
 
 def test_metrics_url_normalizes_trailing_slash():
-    assert mr.metrics_url("http://localhost:3000/") == "http://localhost:3000/api/public/v2/metrics"
-    assert mr.metrics_url("http://localhost:3000") == "http://localhost:3000/api/public/v2/metrics"
+    assert mr.metrics_url("http://localhost:3000/") == "http://localhost:3000/api/public/metrics"
+    assert mr.metrics_url("http://localhost:3000") == "http://localhost:3000/api/public/metrics"
 
 
 def test_build_query_param_injects_window_without_mutating():
@@ -82,7 +82,7 @@ def test_fetch_builds_request_and_returns_data():
 
     assert data == [{"name": "Fundamentals Analyst", "count_count": "1"}]
     args, kwargs = client.get.call_args
-    assert args[0] == "http://lf:3000/api/public/v2/metrics"
+    assert args[0] == "http://lf:3000/api/public/metrics"
     assert kwargs["auth"] == ("pk", "sk")
     assert json.loads(kwargs["params"]["query"])["fromTimestamp"] == "2026-06-24T00:00:00Z"
 

@@ -76,8 +76,12 @@ as a separate signal. Langfuse computes every aggregate server-side; we just que
 ```bash
 curl -s -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" -G \
   --data-urlencode 'query={"view":"observations","metrics":[{"measure":"count","aggregation":"count"}],"dimensions":[{"field":"name"}],"filters":[],"fromTimestamp":"2026-06-24T00:00:00Z","toTimestamp":"2026-06-25T00:00:00Z"}' \
-  http://localhost:3000/api/public/v2/metrics
+  http://localhost:3000/api/public/metrics
 ```
+
+> Endpoint is the **v1** Metrics API (`/api/public/metrics`) — correct for self-hosted
+> Langfuse 3.x. The `/api/public/v2/metrics` path is Langfuse-v4-only and returns 404 on
+> 3.x; the query shape and `{aggregation}_{measure}` response naming are identical.
 
 ### UI dashboard
 
