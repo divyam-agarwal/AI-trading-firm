@@ -156,3 +156,54 @@ def test_dashboard_widgets_match_queries():
         for field in ("view", "metrics", "dimensions", "filters"):
             assert w[field] == q["query"][field], f"{q['key']}.{field} drifted from QUERIES"
         assert w["chartType"]
+
+
+def test_format_table_compacts_float_cells():
+    cols = [("name", "Span"), ("p95_latency", "p95"), ("avg_latency", "avg")]
+    rows = [{"name": "x", "p95_latency": 42935, "avg_latency": 16015.666666666666}]
+    out = mr.format_table("Latency", cols, rows)
+    assert "16015.7" in out            # float compacted via :g
+    assert "16015.666666" not in out   # no full-precision float spew
+    assert "42935" in out              # int rendered unchanged
+
+
+def test_format_table_keeps_small_float_precision():
+    cols = [("model", "Model"), ("sum_totalCost", "Cost")]
+    rows = [{"model": "opus", "sum_totalCost": 0.004884}]
+    out = mr.format_table("Cost", cols, rows)
+    assert "0.004884" in out           # small cost must not round away to 0.0
+
+
+def test_clean_drops_a2a_noise_and_empty_dimension():
+    cols = [("name", "Span")]
+    rows = [
+        {"name": "a2a SendMessage"},                  # our real client span — keep
+        {"name": "Fundamentals Analyst"},             # real agent span — keep
+        {"name": "a2a.server.events.X.enqueue_event"},  # a2a-sdk noise — drop
+        {"name": None},                               # empty grouping dim — drop
+    ]
+    assert [r["name"] for r in mr._clean(rows, cols)] == ["a2a SendMessage", "Fundamentals Analyst"]
+
+
+def test_clean_drops_none_model_row():
+    cols = [("providedModelName", "Model")]
+    rows = [{"providedModelName": "claude-opus-4-8"}, {"providedModelName": None}]
+    assert [r["providedModelName"] for r in mr._clean(rows, cols)] == ["claude-opus-4-8"]
+
+
+def test_run_hides_noise_rows(capsys):
+    cfg = mr.Config(host="http://lf:3000", public_key="pk", secret_key="sk")
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    resp.json.return_value = {"data": [
+        {"name": "Fundamentals Analyst", "count_count": "1", "level": "DEFAULT",
+         "providedModelName": "claude-opus-4-8", "p95_latency": 1.0, "avg_latency": 1.0,
+         "sum_totalTokens": "10", "sum_totalCost": 0.01},
+        {"name": "a2a.server.events.X", "count_count": "9"},
+    ]}
+    client = MagicMock()
+    client.get.return_value = resp
+    mr.run(cfg, frm="a", to="b", client=client)
+    out = capsys.readouterr().out
+    assert "Fundamentals Analyst" in out
+    assert "a2a.server.events" not in out   # noise hidden from the report
