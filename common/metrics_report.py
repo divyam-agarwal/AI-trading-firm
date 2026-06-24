@@ -27,10 +27,22 @@ def build_query_param(body: dict, *, frm: str, to: str) -> str:
     return json.dumps({**body, "fromTimestamp": frm, "toTimestamp": to})
 
 
+def _cell(value) -> str:
+    """Render one cell. Floats use compact ``:g`` (6 sig figs) so Langfuse's
+    full-precision latencies (e.g. 16015.666666666666) print as 16015.7 while
+    small costs (0.004884) keep their significant digits. Ints/strings unchanged.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        return f"{value:g}"
+    return str(value)
+
+
 def format_table(title: str, columns: list[tuple[str, str]], rows: list[dict]) -> str:
     headers = [h for _, h in columns]
     fields = [f for f, _ in columns]
-    cells = [[("" if r.get(f) is None else str(r.get(f))) for f in fields] for r in rows]
+    cells = [[_cell(r.get(f)) for f in fields] for r in rows]
     widths = [len(h) for h in headers]
     for row in cells:
         for i, val in enumerate(row):
@@ -71,6 +83,28 @@ def fetch(config: Config, body: dict, *, frm: str, to: str, client: httpx.Client
     return resp.json().get("data", [])
 
 
+def _clean(rows: list[dict], columns: list[tuple[str, str]]) -> list[dict]:
+    """Hide rows that carry no real metric signal for the report. The first
+    column is always the grouping dimension; drop a row when that value is:
+      - empty/None — e.g. the non-LLM ``providedModelName: null`` row in the
+        tokens-by-model view; or
+      - a2a-sdk self-instrumentation noise (dotted names like
+        ``a2a.server.events.*`` / ``a2a.client.*``). Our real client span is
+        ``"a2a SendMessage"`` (a space, no dot) and is kept.
+    Pure display filtering — no aggregation; Langfuse still computes the totals.
+    """
+    dim = columns[0][0]
+    out = []
+    for r in rows:
+        key = r.get(dim)
+        if key is None or key == "":
+            continue
+        if isinstance(key, str) and key.startswith("a2a."):
+            continue
+        out.append(r)
+    return out
+
+
 def run(config: Config, *, frm: str, to: str, client: httpx.Client) -> int:
     succeeded = 0
     for q in QUERIES:
@@ -79,7 +113,7 @@ def run(config: Config, *, frm: str, to: str, client: httpx.Client) -> int:
         except Exception as exc:  # one bad query must not abort the whole report
             print(f"!! {q['title']}: {exc}\n")
             continue
-        print(format_table(q["title"], q["columns"], rows))
+        print(format_table(q["title"], q["columns"], _clean(rows, q["columns"])))
         print()
         succeeded += 1
     return 0 if succeeded else 1

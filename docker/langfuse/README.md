@@ -94,3 +94,10 @@ and `chartType`. The widget queries are byte-identical to `common/metrics_querie
 > Per-agent latency reads from the analyst **server** spans (distinct names). The client
 > `a2a SendMessage` spans share one name, so they show aggregate round-trip latency, not a
 > per-agent breakdown — see the design doc §6.1.
+
+> The CLI report hides two kinds of no-signal rows for readability: the a2a-sdk's own
+> self-instrumentation spans (dotted names like `a2a.server.*` / `a2a.client.*`; our real
+> `a2a SendMessage` span is kept) and rows whose grouping dimension is empty (e.g. the
+> non-LLM `providedModelName: null` row in tokens-by-model). The raw `curl` query and the
+> UI dashboard show everything, unfiltered. Suppressing the a2a-sdk spans at the *source*
+> (so they never reach Langfuse) remains a separate telemetry-polish step.
