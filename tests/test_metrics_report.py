@@ -1,8 +1,11 @@
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from common import metrics_report as mr
 from common.metrics_queries import QUERIES
+
+DASHBOARD = Path(__file__).resolve().parent.parent / "docker" / "langfuse" / "dashboard.json"
 
 
 def test_metrics_url_normalizes_trailing_slash():
@@ -142,3 +145,14 @@ def test_main_runs_with_config(monkeypatch, capsys):
     assert called["frm"] == "2026-06-01T00:00:00Z"
     assert called["to"] == "2026-06-02T00:00:00Z"
     assert "ran" in capsys.readouterr().out
+
+
+def test_dashboard_widgets_match_queries():
+    spec = json.loads(DASHBOARD.read_text())
+    widgets = {w["key"]: w for w in spec["widgets"]}
+    assert set(widgets) == {q["key"] for q in QUERIES}
+    for q in QUERIES:
+        w = widgets[q["key"]]
+        for field in ("view", "metrics", "dimensions", "filters"):
+            assert w[field] == q["query"][field], f"{q['key']}.{field} drifted from QUERIES"
+        assert w["chartType"]
