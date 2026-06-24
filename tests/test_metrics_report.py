@@ -114,3 +114,31 @@ def test_run_continues_on_query_error(capsys):
     out = capsys.readouterr().out
     assert code == 1
     assert "!!" in out  # error marker printed, no traceback
+
+
+def test_main_graceful_absence(monkeypatch, capsys):
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+    code = mr.main(["--hours", "1"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "LANGFUSE_PUBLIC_KEY" in out or "keys" in out.lower()
+
+
+def test_main_runs_with_config(monkeypatch, capsys):
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    called = {}
+
+    def fake_run(config, *, frm, to, client):
+        called["frm"] = frm
+        called["to"] = to
+        print("ran")
+        return 0
+
+    monkeypatch.setattr(mr, "run", fake_run)
+    code = mr.main(["--from", "2026-06-01T00:00:00Z", "--to", "2026-06-02T00:00:00Z"])
+    assert code == 0
+    assert called["frm"] == "2026-06-01T00:00:00Z"
+    assert called["to"] == "2026-06-02T00:00:00Z"
+    assert "ran" in capsys.readouterr().out

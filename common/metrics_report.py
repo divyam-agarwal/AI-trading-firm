@@ -4,9 +4,11 @@ Langfuse computes every aggregate server-side; this module only builds queries,
 fetches results, and formats them. Opt-in: prints guidance and exits 0 when the
 Langfuse keys are unset.
 """
+import argparse
 import json
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -77,3 +79,30 @@ def run(config: Config, *, frm: str, to: str, client: httpx.Client) -> int:
         print()
         succeeded += 1
     return 0 if succeeded else 1
+
+
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def main(argv: "list[str] | None" = None) -> int:
+    parser = argparse.ArgumentParser(description="Print Langfuse-derived metrics (design §10.3).")
+    parser.add_argument("--hours", type=int, default=24, help="window size, hours back from now (default 24)")
+    parser.add_argument("--from", dest="frm", help="ISO 8601 window start (overrides --hours)")
+    parser.add_argument("--to", dest="to", help="ISO 8601 window end (defaults to now)")
+    args = parser.parse_args(argv)
+
+    now = datetime.now(timezone.utc)
+    to = args.to or _iso(now)
+    frm = args.frm or _iso(now - timedelta(hours=args.hours))
+
+    config = load_config()
+    if config is None:
+        print(
+            "Metrics need Langfuse keys. Set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY "
+            "(and optionally LANGFUSE_HOST). See docker/langfuse/README.md → Metrics."
+        )
+        return 0
+
+    with httpx.Client(timeout=30) as client:
+        return run(config, frm=frm, to=to, client=client)
