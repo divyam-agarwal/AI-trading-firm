@@ -37,3 +37,43 @@ def format_table(title: str, columns: list[tuple[str, str]], rows: list[dict]) -
         for row in cells:
             out.append("  ".join(val.ljust(widths[i]) for i, val in enumerate(row)))
     return "\n".join(out)
+
+
+@dataclass
+class Config:
+    host: str
+    public_key: str
+    secret_key: str
+
+
+def load_config() -> "Config | None":
+    host = os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+    public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+    secret_key = os.getenv("LANGFUSE_SECRET_KEY", "")
+    if not public_key or not secret_key:
+        return None
+    return Config(host=host, public_key=public_key, secret_key=secret_key)
+
+
+def fetch(config: Config, body: dict, *, frm: str, to: str, client: httpx.Client) -> list[dict]:
+    resp = client.get(
+        metrics_url(config.host),
+        params={"query": build_query_param(body, frm=frm, to=to)},
+        auth=(config.public_key, config.secret_key),
+    )
+    resp.raise_for_status()
+    return resp.json().get("data", [])
+
+
+def run(config: Config, *, frm: str, to: str, client: httpx.Client) -> int:
+    succeeded = 0
+    for q in QUERIES:
+        try:
+            rows = fetch(config, q["query"], frm=frm, to=to, client=client)
+        except Exception as exc:  # one bad query must not abort the whole report
+            print(f"!! {q['title']}: {exc}\n")
+            continue
+        print(format_table(q["title"], q["columns"], rows))
+        print()
+        succeeded += 1
+    return 0 if succeeded else 1
