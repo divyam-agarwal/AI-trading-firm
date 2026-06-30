@@ -1,5 +1,4 @@
 """OpenTelemetry + Langfuse setup. No-op when env vars are unset."""
-import atexit
 import os
 from contextlib import contextmanager
 
@@ -49,18 +48,15 @@ def setup(service_name: str) -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
-    provider = TracerProvider(
-        resource=Resource.create({"service.name": service_name}),
-        shutdown_on_exit=False,
-    )
+    provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if endpoint:
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        # Wrap the OTLP exporter to drop the a2a-sdk's self-instrumentation noise.
+        # (OTel's TracerProvider already registers an atexit flush by default, so no
+        # explicit flush handler is needed here.)
         exporter = _FilteringSpanExporter(OTLPSpanExporter())
         provider.add_span_processor(BatchSpanProcessor(exporter))
-        # Short-lived processes (the orchestrator) exit before BatchSpanProcessor's
-        # timer fires; flush buffered spans on clean exit.
-        atexit.register(provider.shutdown)
     trace.set_tracer_provider(provider)
     _CONFIGURED = True
 

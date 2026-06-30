@@ -1,5 +1,4 @@
 import types
-from unittest.mock import MagicMock
 
 from opentelemetry.sdk.trace.export import SpanExportResult
 
@@ -105,17 +104,23 @@ def test_filtering_exporter_delegates_shutdown_and_flush():
     assert inner.flushed
 
 
-def test_setup_wraps_exporter_and_registers_flush(monkeypatch):
-    # Force the endpoint branch to run again in-process.
+class _FakeProvider:
+    """Stand-in for TracerProvider that records added span processors and never
+    registers OTel's own atexit handler (so the test leaves no exit-time noise)."""
+
+    def __init__(self, *args, **kwargs):
+        self.processors = []
+
+    def add_span_processor(self, processor):
+        self.processors.append(processor)
+
+
+def _patch_setup_wiring(monkeypatch, captured):
+    """Patch TracerProvider, BatchSpanProcessor, and set_tracer_provider so setup()
+    runs fully in-process: no real provider, no atexit, no global swap, no network."""
     monkeypatch.setattr(telemetry, "_CONFIGURED", False)
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
-
-    # Stub the OTLP exporter at its import source so no network client is built.
-    import opentelemetry.exporter.otlp.proto.http.trace_exporter as otlp_mod
-    monkeypatch.setattr(otlp_mod, "OTLPSpanExporter", lambda *a, **k: object())
-
-    # Spy on BatchSpanProcessor to capture the exporter it is constructed with.
-    captured = {}
+    monkeypatch.setattr(telemetry, "TracerProvider", _FakeProvider)
+    monkeypatch.setattr(telemetry.trace, "set_tracer_provider", lambda provider: None)
 
     class _SpyBSP:
         def __init__(self, exporter):
@@ -123,27 +128,28 @@ def test_setup_wraps_exporter_and_registers_flush(monkeypatch):
 
     monkeypatch.setattr(telemetry, "BatchSpanProcessor", _SpyBSP)
 
-    # Keep the global provider untouched (avoids OTel "Overriding" warning noise).
-    monkeypatch.setattr(telemetry.trace, "set_tracer_provider", lambda provider: None)
 
-    reg = MagicMock()
-    monkeypatch.setattr(telemetry.atexit, "register", reg)
+def test_setup_wraps_otlp_exporter_when_configured(monkeypatch):
+    captured = {}
+    _patch_setup_wiring(monkeypatch, captured)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+
+    # Stub the OTLP exporter at its import source so no network client is built.
+    import opentelemetry.exporter.otlp.proto.http.trace_exporter as otlp_mod
+    monkeypatch.setattr(otlp_mod, "OTLPSpanExporter", lambda *a, **k: object())
 
     telemetry.setup("svc")
 
+    # The OTLP exporter is wrapped in the noise-suppressing filter before export.
     assert isinstance(captured["exporter"], telemetry._FilteringSpanExporter)
-    assert reg.call_count == 1
-    assert getattr(reg.call_args[0][0], "__name__", "") == "shutdown"
 
 
-def test_setup_without_endpoint_registers_no_flush(monkeypatch):
-    monkeypatch.setattr(telemetry, "_CONFIGURED", False)
+def test_setup_without_endpoint_wraps_nothing(monkeypatch):
+    captured = {}
+    _patch_setup_wiring(monkeypatch, captured)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
-    monkeypatch.setattr(telemetry.trace, "set_tracer_provider", lambda provider: None)
-
-    reg = MagicMock()
-    monkeypatch.setattr(telemetry.atexit, "register", reg)
 
     telemetry.setup("svc")
 
-    assert reg.call_count == 0  # no flush handler when telemetry is off
+    # No exporter / span processor wired up when telemetry is off (no-op path).
+    assert "exporter" not in captured

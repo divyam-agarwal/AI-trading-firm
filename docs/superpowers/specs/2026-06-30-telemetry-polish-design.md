@@ -3,6 +3,17 @@
 Status: approved (2026-06-30). Two small, independent fixes to `common/telemetry.py`
 surfaced during the Tracing Scope C live verification and the Metrics live run.
 
+> **Decision (2026-06-30, during implementation): feature (a) "flush on exit" was
+> DROPPED — only feature (b) shipped.** Verifying the installed OTel SDK showed
+> `TracerProvider(shutdown_on_exit=True)` (the default) *already* does
+> `atexit.register(self.shutdown)`, so an explicit `atexit.register` is redundant on a
+> clean exit. And it does not address the actual Scope C span loss, which came from
+> `run_all_java.sh` **SIGTERM-killing** the orchestrator — `atexit` (OTel's or ours) does
+> not run on a signal kill. Properly fixing the kill case (a force-flush in `main.py` after
+> `run()`, or a graceful shutdown in the run scripts) is deferred as separate work. The
+> sections below are kept as the original design record; only §4.1 + the exporter-wrapping
+> half of §4.2 were implemented.
+
 ## 1. Goal
 
 1. **Flush on exit** — short-lived processes (the orchestrator) must not silently drop

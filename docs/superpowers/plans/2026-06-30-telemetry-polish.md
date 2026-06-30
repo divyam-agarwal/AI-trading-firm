@@ -2,7 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make short-lived processes flush their spans on exit, and drop the a2a-sdk's self-instrumentation spans before they reach the backend — both only when telemetry is configured.
+**Goal:** Drop the a2a-sdk's self-instrumentation spans before they reach the backend, only when telemetry is configured.
+
+> **Update (2026-06-30): feature (a) "flush on exit" was DROPPED during implementation** —
+> OTel's `TracerProvider` already registers an atexit flush by default (`shutdown_on_exit=True`),
+> so an explicit `atexit.register` is redundant, and it does not fix the real Scope C loss (a
+> SIGTERM kill, where atexit never runs). Task 2 below shipped only the exporter-wrapping half;
+> the `atexit.register`/`shutdown_on_exit` lines and the two atexit wiring assertions were
+> removed. See the spec's Decision note.
 
 **Architecture:** Two changes confined to `common/telemetry.py`, inside the existing `if endpoint:` branch of `setup()`. A standalone `_FilteringSpanExporter` wraps the OTLP exporter and drops spans by instrumentation-scope name; `atexit.register(provider.shutdown)` flushes the `BatchSpanProcessor` on clean exit. No-op path unchanged.
 
