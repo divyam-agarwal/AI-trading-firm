@@ -49,11 +49,18 @@ def setup(service_name: str) -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
-    provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
+    provider = TracerProvider(
+        resource=Resource.create({"service.name": service_name}),
+        shutdown_on_exit=False,
+    )
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     if endpoint:
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+        exporter = _FilteringSpanExporter(OTLPSpanExporter())
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        # Short-lived processes (the orchestrator) exit before BatchSpanProcessor's
+        # timer fires; flush buffered spans on clean exit.
+        atexit.register(provider.shutdown)
     trace.set_tracer_provider(provider)
     _CONFIGURED = True
 
