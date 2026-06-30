@@ -11,7 +11,7 @@
 > the `atexit.register`/`shutdown_on_exit` lines and the two atexit wiring assertions were
 > removed. See the spec's Decision note.
 
-**Architecture:** Two changes confined to `common/telemetry.py`, inside the existing `if endpoint:` branch of `setup()`. A standalone `_FilteringSpanExporter` wraps the OTLP exporter and drops spans by instrumentation-scope name; `atexit.register(provider.shutdown)` flushes the `BatchSpanProcessor` on clean exit. No-op path unchanged.
+**Architecture:** A change confined to `common/telemetry.py`, inside the existing `if endpoint:` branch of `setup()`: a standalone `_FilteringSpanExporter` wraps the OTLP exporter and drops spans by instrumentation-scope name. No-op path unchanged. (The original design also added an `atexit.register(provider.shutdown)` flush — **superseded, see the Update note above**: OTel already registers that atexit by default, so it was dropped.)
 
 **Tech Stack:** Python 3.13, OpenTelemetry SDK (`opentelemetry-sdk`, already a dep), `pytest` (dev). No new dependencies.
 
