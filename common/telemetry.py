@@ -1,4 +1,5 @@
 """OpenTelemetry + Langfuse setup. No-op when env vars are unset."""
+import atexit
 import os
 from contextlib import contextmanager
 
@@ -8,9 +9,40 @@ from opentelemetry.propagate import extract as _otel_extract
 from opentelemetry.propagate import inject as _otel_inject
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter, SpanExportResult
 
 _CONFIGURED = False
+
+# The a2a-sdk instruments itself with OpenTelemetry under this single scope name
+# (its INSTRUMENTING_MODULE_NAME), emitting a2a.server.* / a2a.client.* spans that
+# form stray traces. Our own spans use module-name scopes, so an exact-match drop
+# here never touches them.
+SUPPRESSED_SCOPES = frozenset({"a2a-python-sdk"})
+
+
+def _scope_name(span) -> "str | None":
+    scope = getattr(span, "instrumentation_scope", None)
+    return getattr(scope, "name", None) if scope is not None else None
+
+
+class _FilteringSpanExporter(SpanExporter):
+    """Wrap a SpanExporter, dropping spans whose instrumentation scope is in
+    SUPPRESSED_SCOPES before delegating the rest."""
+
+    def __init__(self, inner: SpanExporter) -> None:
+        self._inner = inner
+
+    def export(self, spans):
+        kept = [s for s in spans if _scope_name(s) not in SUPPRESSED_SCOPES]
+        if not kept:
+            return SpanExportResult.SUCCESS
+        return self._inner.export(kept)
+
+    def shutdown(self):
+        return self._inner.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30_000) -> bool:
+        return self._inner.force_flush(timeout_millis)
 
 
 def setup(service_name: str) -> None:
